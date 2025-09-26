@@ -6,15 +6,25 @@ from flask import render_template_string
 import copy
 import os
 
-app = Flask(__name__)
+app = Flask(_name_)
 
 SAFETY_MARGIN_METERS = 200
+# Acceleration applied per tick (km/h per simulation tick). User requested 10 km/h^2
+# Here we interpret this as 10 km/h increase per tick (tick is 1 second in this simulation).
+ACCELERATION_KMH_PER_TICK = 10.0
 
 simulation_state = {
     'trains': {
-        "Express_101": {"id": "Express_101", "position_km": 10.0, "speed_kmh": 90.0, "max_speed_kmh": 120, "braking_rate": 0.8, "priority": 1},
-        "Local_202": {"id": "Local_202", "position_km": 15.0, "speed_kmh": 40.0, "max_speed_kmh": 80, "braking_rate": 0.8, "priority": 2},
-        "Goods_303": {"id": "Goods_303", "position_km": 5.0, "speed_kmh": 30.0, "max_speed_kmh": 60, "braking_rate": 0.6, "priority": 3}
+        # Sequence: 1.goods, 2.goods, 3.goods, 4.local, 5.local, 6.express, 7.express
+        # runtime 'speed_kmh' is 0.0 initially; 'target_speed_kmh' stores the configured speed
+        "Goods_301": {"id": "Goods_301", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 30.0, "max_speed_kmh": 60, "braking_rate": 0.6, "priority": 3, "dispatched": False},
+        "Goods_302": {"id": "Goods_302", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 30.0, "max_speed_kmh": 60, "braking_rate": 0.6, "priority": 3, "dispatched": False},
+        "Express_102": {"id": "Express_102", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 90.0, "max_speed_kmh": 120, "braking_rate": 0.8, "priority": 1, "dispatched": False},
+
+        "Goods_303": {"id": "Goods_303", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 30.0, "max_speed_kmh": 60, "braking_rate": 0.6, "priority": 3, "dispatched": False},
+        "Local_201": {"id": "Local_201", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 40.0, "max_speed_kmh": 80, "braking_rate": 0.8, "priority": 2, "dispatched": False},
+        "Local_202": {"id": "Local_202", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 40.0, "max_speed_kmh": 80, "braking_rate": 0.8, "priority": 2, "dispatched": False},
+        "Express_101": {"id": "Express_101", "position_km": 0.0, "speed_kmh": 0.0, "target_speed_kmh": 90.0, "max_speed_kmh": 120, "braking_rate": 0.8, "priority": 1, "dispatched": False},
     },
     'occupied_tracks': []
 }
@@ -85,26 +95,35 @@ def simulation_loop():
 
             # --- (Inside simulation_loop) ---
             for i, current_train in enumerate(sorted_trains):
-                train_ahead = None
+                train_ahead = None 
                 if i + 1 < len(sorted_trains):
                     train_ahead = sorted_trains[i+1]
 
-                # Default to max speed if the track is clear
-                safe_speed_limit = current_train['max_speed_kmh'] 
+                # If the train is not yet dispatched, it must stay stopped
+                if not current_train.get('dispatched', False):
+                    current_train['speed_kmh'] = 0.0
+                    continue
+
+                # Default desired limit: allow trains to accelerate up to their configured maximum speed
+                desired_limit = current_train.get('max_speed_kmh', current_train.get('target_speed_kmh', 0))
 
                 # If there's a train ahead, calculate a more restrictive speed limit
+                safe_speed_limit = desired_limit
                 if train_ahead:
-                    safe_speed_limit = calculate_dynamic_speed_limit(current_train, train_ahead)
+                    safe_speed_limit = min(safe_speed_limit, calculate_dynamic_speed_limit(current_train, train_ahead))
 
                 # Now, apply acceleration or braking based on the final calculated limit
                 if safe_speed_limit < current_train['speed_kmh']:
-                    # Brake immediately for safety
+                    # Brake immediately for safety (braking rate unchanged)
                     current_train['speed_kmh'] = safe_speed_limit
                 else:
-                    # Accelerate gradually towards the speed limit
-                    current_train['speed_kmh'] = min(safe_speed_limit, current_train['speed_kmh'] + 2)
+                    # Accelerate towards the speed limit using configured acceleration per tick
+                    current_train['speed_kmh'] = min(safe_speed_limit, current_train['speed_kmh'] + ACCELERATION_KMH_PER_TICK)
 
             for train_id, train in simulation_state['trains'].items():
+                # Only update position if the train has been dispatched; safety: undispatched trains should remain at start
+                if not train.get('dispatched', False):
+                    continue
                 distance_moved_km = train['speed_kmh'] * (TICK_RATE_SECONDS / 3600)
                 train['position_km'] += distance_moved_km
 
@@ -131,7 +150,7 @@ def display_simulation(state):
     """
     # Define the visual scale of our track
     TRACK_VISUAL_LENGTH_CHARS = 100  # How many characters wide the track is
-    TOTAL_TRACK_KM = 50.0            # The total length of the railway in km this represents
+    TOTAL_TRACK_KM = 10.0            # The total length of the railway in km this represents (reduced to 10 km)
 
     # --- Clear the screen ---
     # 'nt' is for Windows, 'posix' is for Mac/Linux
@@ -168,6 +187,21 @@ def display_simulation(state):
     print("STATUS DASHBOARD:")
     for train in sorted_trains:
         print(f"  > {train['id']}: \t Pos: {train['position_km']:.2f} km | Speed: {train['speed_kmh']:.2f} km/h")
+
+
+def dispatcher_loop(dispatch_sequence, delay_between_dispatches=2.0):
+    """Marks trains as dispatched in the exact order provided, ignoring priority.
+    dispatch_sequence is a list of train IDs in the order they should be released.
+    """
+    # Dispatch each train in order exactly once
+    for i, tid in enumerate(dispatch_sequence):
+        with state_lock:
+            if tid in simulation_state['trains'] and not simulation_state['trains'][tid].get('dispatched', False):
+                simulation_state['trains'][tid]['dispatched'] = True
+                print(f"[DISPATCH] Train {tid} dispatched at {time.strftime('%H:%M:%S')}")
+        # Sleep after dispatching unless it's the last one
+        if i < len(dispatch_sequence) - 1:
+            time.sleep(delay_between_dispatches)
 
 @app.route("/")
 def home():
@@ -248,7 +282,7 @@ def viewer():
         <script>
             // These constants must match the ones in your Python display_simulation function
             const TRACK_VISUAL_LENGTH_CHARS = 100;
-            const TOTAL_TRACK_KM = 50.0;
+            const TOTAL_TRACK_KM = 10.0;
 
             function updateClock() {
                 const now = new Date();
@@ -274,12 +308,12 @@ def viewer():
                         if (train.id.includes('Local')) trainClass += ' local';
                         if (train.id.includes('Goods')) trainClass += ' goods';
 
-                        const trainIcon = `<span class="${trainClass}">${train.id[0]}</span>`;
+                        const trainIcon = <span class="${trainClass}">${train.id[0]}</span>;
 
                         if (track[charPosition] === '·') {
                             track[charPosition] = trainIcon;
                         } else {
-                            track[charPosition] = `<span class="collision">*</span>`; // Collision/overlap icon
+                            track[charPosition] = <span class="collision">*</span>; // Collision/overlap icon
                         }
                     }
                     document.getElementById('track').innerHTML = track.join('');
@@ -312,7 +346,24 @@ def viewer():
     </html>
     """, time_str=time.strftime('%H:%M:%S')) # Pass current time for initial load
 
-if __name__ == "__main__":
+if _name_ == "_main_":
+    # Start simulation thread
     simulation_thread = threading.Thread(target=simulation_loop, daemon=True)
     simulation_thread.start()
+
+    # Dispatch sequence requested by user (ignore priority):
+    # 1.express, 2.local, 3.local, 4.goods, 5.express, 6.goods, 7.goods
+    dispatch_sequence = [
+        'Express_101',
+        'Local_201',
+        'Local_202',
+        'Goods_301',
+        'Express_102',
+        'Goods_302',
+        'Goods_303'
+    ]
+
+    dispatcher_thread = threading.Thread(target=dispatcher_loop, args=(dispatch_sequence, 2.0), daemon=True)
+    dispatcher_thread.start()
+
     app.run(debug=True, use_reloader=False)
