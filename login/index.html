@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login with Roles</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            display: flex;
+            justify-content: flex-end; /* Aligns content to the right */
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem 5rem 1rem 1rem; /* Adds space on the right side */
+            position: relative;
+            overflow: hidden;
+        }
+        .card {
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 28rem;
+            z-index: 10;
+            position: relative;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #d1d5db;
+            transition: all 0.2s;
+            outline: none;
+        }
+        .input-field:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: rgba(229, 231, 235, 0.6);
+            color: #4b5563;
+        }
+        .btn-secondary:hover {
+            background-color: rgba(209, 213, 219, 0.8);
+        }
+        .message-box {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            text-align: center;
+            font-weight: 500;
+        }
+        .message-box.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .message-box.success {
+            background-color: rgba(209, 250, 229, 0.4);
+            color: #065f46;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border: 1px solid rgba(6, 95, 70, 0.2);
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        .background-media {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: -1;
+            object-fit: cover;
+        }
+        .hidden-bg {
+            display: none;
+        }
+        #admin-options {
+            background-color: rgba(230, 242, 247, 0.3);
+            color: #1e40af;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            text-align: center;
+            font-weight: 500;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border: 1px solid rgba(79, 70, 229, 0.15);
+        }
+    </style>
+</head>
+<body>
+
+<video autoplay muted loop id="video-bg" class="background-media">
+    <source src="videos/train.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+</video>
+
+<img src="images/background.jpg" id="image-bg" class="background-media hidden-bg">
+
+<div id="app" class="card">
+    <div id="login-screen">
+        <h2 class="text-3xl font-semibold text-gray-800 text-center mb-6">Log In</h2>
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                <input type="text" id="username" class="input-field" placeholder="Enter your username" required>
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input type="password" id="password" class="input-field" placeholder="Enter your password" required>
+            </div>
+            <button type="submit" class="btn btn-primary mt-6">Login</button>
+        </form>
+        <div id="login-message" class="message-box hidden"></div>
+    </div>
+
+    <div id="welcome-screen" class="hidden">
+        <div class="message-box success">
+            <h3 class="text-2xl font-semibold mb-2" id="welcome-title"></h3>
+            <p id="welcome-message" class="mb-4"></p>
+            <div id="admin-options" class="hidden">
+                <p class="font-semibold mb-2">Admin Options</p>
+                <button id="fixed-blocking-btn" class="btn btn-secondary mt-2 w-full">Fixed Blocking</button>
+                <button id="dynamic-blocking-btn" class="btn btn-secondary mt-2 w-full">Dynamic Blocking</button>
+            </div>
+            <div class="mt-4">
+                <button id="logout-btn" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+        <div id="admin-action-message" class="message-box hidden mt-4"></div>
+    </div>
+
+    <div id="loading-screen" class="hidden flex flex-col items-center justify-center p-8">
+        <div class="spinner"></div>
+        <p class="mt-4 text-gray-600">Processing...</p>
+    </div>
+</div>
+
+<script type="module">
+    // --- UI Elements ---
+    const loginScreen = document.getElementById('login-screen');
+    const welcomeScreen = document.getElementById('welcome-screen');
+    const loadingScreen = document.getElementById('loading-screen');
+    const loginForm = document.getElementById('login-form');
+    const loginBtn = loginForm.querySelector('button');
+    const logoutBtn = document.getElementById('logout-btn');
+    const loginMessage = document.getElementById('login-message');
+    const welcomeTitle = document.getElementById('welcome-title');
+    const welcomeMessage = document.getElementById('welcome-message');
+    const adminOptions = document.getElementById('admin-options');
+    const fixedBlockingBtn = document.getElementById('fixed-blocking-btn');
+    const dynamicBlockingBtn = document.getElementById('dynamic-blocking-btn');
+    const adminActionMessage = document.getElementById('admin-action-message');
+    
+    // Background elements
+    const videoBg = document.getElementById('video-bg');
+    const imageBg = document.getElementById('image-bg');
+
+    // --- Hardcoded Credentials ---
+    const hardcodedUsers = {
+        'admin': 'pass'
+    };
+
+    // --- Login Attempt Counter ---
+    let loginAttempts = 0;
+    const MAX_ATTEMPTS = 3;
+
+    function showScreen(screen) {
+        loginScreen.classList.add('hidden');
+        welcomeScreen.classList.add('hidden');
+        loadingScreen.classList.add('hidden');
+        screen.classList.remove('hidden');
+    }
+
+    function showMessage(element, text, isError = false) {
+        element.textContent = text;
+        element.classList.remove('hidden', 'error', 'success');
+        element.classList.add(isError ? 'error' : 'success');
+    }
+
+    function loginUser(username, password) {
+        showScreen(loadingScreen);
+        loginMessage.classList.add('hidden');
+
+        if (hardcodedUsers[username] && hardcodedUsers[username] === password) {
+            // Hide video and show image on successful login
+            videoBg.classList.add('hidden-bg');
+            imageBg.classList.remove('hidden-bg');
+
+            welcomeTitle.textContent = `Hello, ${username}!`;
+            welcomeMessage.textContent = 'You have logged in as an administrator. Select an option below.';
+            adminOptions.classList.remove('hidden');
+            showScreen(welcomeScreen);
+            loginAttempts = 0;
+            loginBtn.disabled = false;
+        } else {
+            loginAttempts++;
+            if (loginAttempts >= MAX_ATTEMPTS) {
+                showMessage(loginMessage, `Maximum login attempts reached. Please try again later.`, true);
+                loginBtn.disabled = true;
+                loginForm.reset();
+            } else {
+                const remaining = MAX_ATTEMPTS - loginAttempts;
+                showMessage(loginMessage, `Invalid username or password. You have ${remaining} attempt(s) remaining.`, true);
+            }
+            showScreen(loginScreen);
+        }
+    }
+
+    // --- Event Listeners ---
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        if (username && password) {
+            loginUser(username, password);
+        } else {
+            showMessage(loginMessage, "Please enter both username and password.", true);
+        }
+    });
+
+    logoutBtn.addEventListener('click', () => {
+        // Clear forms and show login screen, reset attempts
+        loginForm.reset();
+        loginAttempts = 0;
+        loginBtn.disabled = false;
+        showScreen(loginScreen);
+        adminActionMessage.classList.add('hidden');
+        // On logout, switch back to the video background
+        videoBg.classList.remove('hidden-bg');
+        imageBg.classList.add('hidden-bg');
+    });
+
+    fixedBlockingBtn.addEventListener('click', () => {
+        // Hide the welcome screen and show fixed blocking content
+        showScreen(loadingScreen);
+        
+        // Create an iframe to display the static railway simulation
+        setTimeout(() => {
+            const iframe = document.createElement('iframe');
+            iframe.src = 'fixed_simulation.html';
+            iframe.style.width = '100%';
+            iframe.style.height = '100vh';
+            iframe.style.border = 'none';
+            iframe.style.position = 'fixed';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.zIndex = '1000';
+            iframe.style.backgroundColor = 'white';
+            
+            // Add back button
+            const backButton = document.createElement('button');
+            backButton.textContent = '← Back to Admin Panel';
+            backButton.className = 'btn btn-secondary';
+            backButton.style.position = 'fixed';
+            backButton.style.top = '20px';
+            backButton.style.right = '20px';
+            backButton.style.zIndex = '1001';
+            backButton.addEventListener('click', () => {
+                document.body.removeChild(iframe);
+                document.body.removeChild(backButton);
+                showScreen(welcomeScreen);
+            });
+            
+            document.body.appendChild(iframe);
+            document.body.appendChild(backButton);
+        }, 500);
+    });
+
+    dynamicBlockingBtn.addEventListener('click', () => {
+        // Hide the welcome screen and show dynamic blocking content
+        showScreen(loadingScreen);
+        
+        // Create an iframe to display the dynamic railway simulation
+        setTimeout(() => {
+            const iframe = document.createElement('iframe');
+            iframe.src = 'http://localhost:5000/viewer';
+            iframe.style.width = '100%';
+            iframe.style.height = '100vh';
+            iframe.style.border = 'none';
+            iframe.style.position = 'fixed';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.zIndex = '1000';
+            iframe.style.backgroundColor = 'white';
+            
+            // Add back button
+            const backButton = document.createElement('button');
+            backButton.textContent = '← Back to Admin Panel';
+            backButton.className = 'btn btn-secondary';
+            backButton.style.position = 'fixed';
+            backButton.style.top = '20px';
+            backButton.style.right = '20px';
+            backButton.style.zIndex = '1001';
+            backButton.addEventListener('click', () => {
+                document.body.removeChild(iframe);
+                document.body.removeChild(backButton);
+                showScreen(welcomeScreen);
+            });
+            
+            document.body.appendChild(iframe);
+            document.body.appendChild(backButton);
+        }, 500);
+    });
+
+    // Initial state setup on window load
+    window.addEventListener('load', () => {
+        showScreen(loginScreen);
+    });
+</script>
+
+</body>
+</html>

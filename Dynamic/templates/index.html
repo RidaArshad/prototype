@@ -1,0 +1,39 @@
+<!-- FILE: templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Railway AI Simulation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI-Powered Railway Traffic Control</h1>
+            <h2>High-Traffic Junction Simulation</h2>
+        </header>
+        <main>
+            <div id="map-container">
+                <canvas id="track-canvas"></canvas>
+            </div>
+            <div id="dashboard">
+                <h3>Live Train Status</h3>
+                <table id="train-status-table">
+                    <thead>
+                        <tr>
+                            <th>Train ID</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Speed (km/h)</th>
+                            <th>Dist to Next (km)</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='simulation.js') }}"></script>
+</body>
+</html>

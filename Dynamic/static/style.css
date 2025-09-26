@@ -1,0 +1,135 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    height: 100%;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+header {
+    text-align: center;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #4a5568;
+}
+
+header h1 {
+    margin: 0;
+    color: #63b3ed;
+}
+header h2 {
+    margin: 0;
+    font-weight: 400;
+    color: #a0aec0;
+}
+
+main {
+    flex-grow: 1;
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    min-height: 0;
+}
+
+#map-container {
+    flex-grow: 1;
+    position: relative;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    background-color: #2d3748;
+    overflow: hidden;
+}
+
+#track-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#dashboard {
+    width: 450px;
+    flex-shrink: 0;
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+#train-status-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+#train-status-table th, #train-status-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #4a5568;
+}
+
+#train-status-table th {
+    color: #a0aec0;
+}
+
+/* --- Map Element Styles --- */
+.node {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+.node.station, .node.junction {
+    background-color: #f7fafc;
+    border: 2px solid #2d3748;
+}
+.node.signal {
+    background-color: #f6ad55;
+    width: 10px;
+    height: 10px;
+}
+
+.node-label {
+    position: absolute;
+    color: #a0aec0;
+    font-size: 11px;
+    z-index: 11;
+    transform: translate(-50%, 0);
+    text-shadow: 0 0 3px #1a202c;
+    pointer-events: none;
+}
+
+.train {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    color: #1a202c;
+    transition: left 1s linear, top 1s linear; /* Smooth movement */
+    box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.5);
+}
+
+.train.Express { background-color: #f56565; }
+.train.Passenger { background-color: #48bb78; }
+.train.Goods { background-color: #a0aec0; }

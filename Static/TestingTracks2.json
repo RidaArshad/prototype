@@ -1,0 +1,17 @@
+{
+  "nodes": {
+    "Junction1": { "x": 100, "y": 150, "label": "Junction 1", "type": "STATION" },
+    "Signal1": { "x": 260, "y": 150, "label": "SIG-A", "type": "SIGNAL"},
+    "Signal2": { "x": 420, "y": 150, "label": "SIG-B", "type": "SIGNAL"},
+    "Signal3": { "x": 580, "y": 150, "label": "SIG-C", "type": "SIGNAL"},
+    "Signal4": { "x": 740, "y": 150, "label": "SIG-D", "type": "SIGNAL"},
+    "Junction2": { "x": 900, "y": 150, "label": "Junction 2", "type": "STATION" }
+  },
+  "tracks": [
+    { "from": "Junction1", "to": "Signal1" },
+    { "from": "Signal1", "to": "Signal2" },
+    { "from": "Signal2", "to": "Signal3" },
+    { "from": "Signal3", "to": "Signal4" },
+    { "from": "Signal4", "to": "Junction2" }
+  ]
+}

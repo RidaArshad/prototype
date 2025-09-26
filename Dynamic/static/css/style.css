@@ -1,0 +1,52 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, sans-serif;
+    background: #1a202c;
+    color: #e2e8f0;
+}
+
+.container {
+    padding: 1rem 2rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+header h1 { color: #63b3ed; }
+header h2 { color: #a0aec0; }
+
+#track-container {
+    background: #2d3748;
+    border: 2px solid #4a5568;
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.track {
+    position: relative;
+    height: 100px;
+    white-space: nowrap;
+    border-top: 3px solid #718096;
+}
+
+.train {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+.train .emoji {
+    font-size: 2rem;
+    display: block;
+}
+
+.train .label {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+}

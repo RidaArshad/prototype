@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway Simulation Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        .track-line { stroke: #6b7280; stroke-width: 4; stroke-linecap: round; }
+        .node-label { font-size: 12px; font-weight: 500; fill: #4b5563; text-anchor: middle; pointer-events: none; }
+        .signal-node { transition: fill 0.2s ease-in-out; }
+        .train-icon { transition: all 0.2s linear; }
+        .train-label { font-size: 11px; font-weight: bold; fill: white; text-anchor: middle; pointer-events: none; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans p-8">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Railway Simulation Control</h1>
+            <p class="text-gray-500">Interactive railway network visualization and simulation</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Control Panel -->
+            <aside class="lg:col-span-1 bg-white p-6 rounded-lg shadow-md space-y-8">
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Load Network</h2>
+                    <p class="text-sm text-gray-500 mb-2">Select a local JSON file to build the network.</p>
+                    <input type="file" id="json-file-input" accept=".json" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"/>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Simulation Controls</h2>
+                    <div class="flex items-center space-x-4">
+                        <button id="start-stop-btn" disabled class="flex items-center justify-center w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                            <svg id="start-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                            <span id="start-stop-text">Start</span>
+                        </button>
+                         <button id="reset-btn" disabled class="p-2 border rounded-lg hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed" title="Reset Simulation">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15" /></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Network Status</h2>
+                    <div class="space-y-2 text-gray-600">
+                        <div class="flex justify-between items-center"><span>Active Trains</span><span id="active-trains-count" class="font-bold text-lg text-blue-600 bg-blue-100 px-2 rounded-md">0</span></div>
+                        <div class="flex justify-between items-center"><span>Stations</span><span id="stations-count" class="font-bold text-lg bg-gray-200 px-2 rounded-md">0</span></div>
+                        <div class="flex justify-between items-center"><span>Signals</span><span id="signals-count" class="font-bold text-lg bg-gray-200 px-2 rounded-md">0</span></div>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 border-b pb-2">Signal Status</h2>
+                    <div id="signal-controls-container" class="space-y-3"></div>
+                </div>
+            </aside>
+
+            <!-- Right Network Visualization Panel -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Network Visualization</h2>
+                <div class="relative w-full h-[500px] border-2 border-dashed rounded-lg bg-gray-50 flex items-center justify-center">
+                    <svg id="network-svg" class="w-full h-full" viewBox="0 0 1000 300"></svg>
+                    <div id="simulation-status-text" class="absolute bottom-4 right-4 text-gray-400 font-semibold">Load a file to begin</div>
+                </div>
+                <div class="flex items-center justify-center space-x-6 mt-4 text-sm text-gray-500">
+                     <span class="flex items-center"><span class="h-3 w-3 rounded-full bg-blue-600 mr-2"></span>Stations</span>
+                     <span class="flex items-center"><span class="h-3 w-3 rounded-full bg-yellow-400 mr-2"></span>Signals</span>
+                     <span class="flex items-center"><span class="h-3 w-3 rounded-full bg-sky-500 mr-2"></span>Trains</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+document.addEventListener('DOMContentLoaded', () => {
+    const svg = document.getElementById('network-svg');
+    const startStopBtn = document.getElementById('start-stop-btn');
+    const startStopText = document.getElementById('start-stop-text');
+    const startIcon = document.getElementById('start-icon').innerHTML;
+    const stopIcon = `<svg id="stop-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" /></svg>`;
+    const resetBtn = document.getElementById('reset-btn');
+    const simStatusText = document.getElementById('simulation-status-text');
+    const jsonFileInput = document.getElementById('json-file-input');
+
+    let networkData = null, isRunning = false, trains = [], signalStates = {};
+    const signalColors = { green: '#22c55e', yellow: '#facc15', red: '#ef4444' };
+    let lastTimestamp = 0, animationFrameId = null;
+
+    // New: train length so block only clears when fully passed
+    const TRAIN_LENGTH = 30;
+
+    let blocks = [];
+    let nodePath = [];
+
+    function buildOrderedPathFromTracks() {
+        const tracks = networkData.tracks;
+        if (!tracks || tracks.length === 0) return [];
+        const adj = {};
+        tracks.forEach(t => { adj[t.from] = adj[t.from] || []; adj[t.from].push(t.to); });
+
+        const toSet = new Set(tracks.map(t => t.to));
+        const start = tracks.find(t => !toSet.has(t.from))?.from || tracks[0].from;
+
+        const path = [start];
+        let current = start;
+        while (true) {
+            const nextCandidates = adj[current] || [];
+            if (nextCandidates.length === 0) break;
+            const next = nextCandidates[0];
+            path.push(next);
+            current = next;
+            if (path.length > 1000) break;
+        }
+        return path;
+    }
+
+    function buildBlocksFromPath(path) {
+        blocks = [];
+        for (let i = 0; i < path.length - 1; i++) {
+            const a = networkData.nodes[path[i]], b = networkData.nodes[path[i+1]];
+            if (!a || !b) continue;
+            const len = Math.hypot(b.x - a.x, b.y - a.y);
+            blocks.push({
+                id: `B${i}`,
+                from: path[i],
+                to: path[i+1],
+                length: len,
+                startXY: { x: a.x, y: a.y },
+                endXY: { x: b.x, y: b.y },
+                index: i
+            });
+        }
+    }
+
+    function initializeSimulation() {
+        if (!networkData) return;
+        nodePath = buildOrderedPathFromTracks();
+        buildBlocksFromPath(nodePath);
+
+        signalStates = {};
+        Object.keys(networkData.nodes).filter(id => networkData.nodes[id].type === 'SIGNAL')
+            .forEach(id => signalStates[id] = 'red');
+
+        trains = [
+            { id: 'T1', path: nodePath, speed: 40, progress: 0, color: '#ef4444', status: 'Running' , canProceed:true, approachSlow:false },
+            { id: 'T2', path: nodePath, speed: 35, progress: -200, color: '#f97316', status: 'Running' , canProceed:true, approachSlow:false },
+            { id: 'T3', path: nodePath, speed: 50, progress: -400, color: '#84cc16', status: 'Running' , canProceed:true, approachSlow:false },
+        ];
+
+        drawSimulation();
+        simStatusText.textContent = "Simulation Paused";
+    }
+
+    function drawSimulation() {
+        if (!networkData) return;
+        drawNetwork();
+        updateUI();
+        updateTrainPositions();
+    }
+
+    function drawNetwork() {
+        svg.innerHTML = '';
+        networkData.tracks.forEach(track => {
+            const from = networkData.nodes[track.from], to = networkData.nodes[track.to];
+            if (from && to) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                Object.assign(line.style, { stroke: '#6b7280', strokeWidth: '4', strokeLinecap: 'round' });
+                line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+                line.setAttribute('x2', to.x); line.setAttribute('y2', to.y);
+                svg.appendChild(line);
+            }
+        });
+
+        Object.entries(networkData.nodes).forEach(([id, node]) => {
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', node.x); label.setAttribute('y', node.y - 18);
+            label.textContent = node.label;
+            Object.assign(label.style, { fontSize: '12px', fontWeight: '500', fill: '#4b5563', textAnchor: 'middle', pointerEvents: 'none' });
+
+            switch (node.type) {
+                case 'STATION':
+                    const station = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    station.setAttribute('x', node.x - 40); station.setAttribute('y', node.y - 12);
+                    station.setAttribute('width', 80); station.setAttribute('height', 24);
+                    station.setAttribute('rx', 4); station.setAttribute('fill', '#2563eb');
+                    group.appendChild(station);
+                    break;
+                case 'SIGNAL':
+                    const signal = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    signal.setAttribute('cx', node.x); signal.setAttribute('cy', node.y);
+                    signal.setAttribute('r', '10');
+                    const col = signalColors[signalStates[id]] || signalColors.red;
+                    signal.setAttribute('fill', col);
+                    signal.id = `signal-${id}`;
+                    group.appendChild(signal);
+                    break;
+            }
+            svg.appendChild(group);
+            if (node.label) svg.appendChild(label);
+        });
+
+        trains.forEach(train => {
+            let trainGroup = document.getElementById(`train-${train.id}`);
+            if (!trainGroup) {
+                trainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                trainGroup.id = `train-${train.id}`;
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('width', 30); rect.setAttribute('height', 18);
+                rect.setAttribute('rx', 4);
+                rect.setAttribute('fill', train.color);
+                rect.setAttribute('id', `train-rect-${train.id}`);
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', 15); text.setAttribute('y', 13);
+                text.textContent = train.id;
+                Object.assign(text.style, { fontSize: '11px', fontWeight: 'bold', fill: 'white', textAnchor: 'middle', pointerEvents: 'none' });
+                trainGroup.append(rect, text);
+                svg.appendChild(trainGroup);
+            } else {
+                const rect = document.getElementById(`train-rect-${train.id}`);
+                if (rect) rect.setAttribute('fill', train.color);
+            }
+        });
+    }
+
+    function updateUI() {
+        if (!networkData) return;
+        document.getElementById('active-trains-count').textContent = trains.filter(t => t.status !== 'Terminated').length;
+        document.getElementById('stations-count').textContent = Object.values(networkData.nodes).filter(n => n.type === 'STATION').length;
+        document.getElementById('signals-count').textContent = Object.keys(signalStates).length;
+        const signalContainer = document.getElementById('signal-controls-container');
+        signalContainer.innerHTML = '';
+        Object.entries(signalStates).forEach(([id, state]) => {
+            const div = document.createElement('div');
+            div.className = 'flex justify-between items-center';
+            div.innerHTML = `<span>${networkData.nodes[id].label}</span><div class="w-6 h-6 rounded-full border-2" style="background-color: ${signalColors[state]};"></div>`;
+            signalContainer.appendChild(div);
+        });
+    }
+
+    function getTotalPathLength(path) {
+        let total = 0;
+        for (let i = 1; i < path.length; i++) {
+            const n1 = networkData.nodes[path[i-1]], n2 = networkData.nodes[path[i]];
+            total += Math.hypot(n2.x - n1.x, n2.y - n1.y);
+        }
+        return total;
+    }
+
+    function getTrainPosition(train) {
+        if (!networkData || !train.path) return null;
+        if (train.progress < 0) return null;
+        let totalDist = 0;
+        for (let i = 0; i < train.path.length - 1; i++) {
+            const n1 = networkData.nodes[train.path[i]], n2 = networkData.nodes[train.path[i+1]];
+            const segLen = Math.hypot(n2.x - n1.x, n2.y - n1.y);
+            if (train.progress >= totalDist && train.progress < totalDist + segLen) {
+                const frac = (train.progress - totalDist) / segLen;
+                return {
+                    x: n1.x + (n2.x - n1.x) * frac,
+                    y: n1.y + (n2.y - n1.y) * frac,
+                    segment: { start: train.path[i], end: train.path[i+1], index: i },
+                    distIntoSegment: train.progress - totalDist,
+                    remainingInSegment: segLen - (train.progress - totalDist)
+                };
+            }
+            totalDist += segLen;
+        }
+        const lastIdx = train.path.length - 1;
+        const lastNode = networkData.nodes[lastIdx];
+        return { x: lastNode.x, y: lastNode.y, segment: { start: train.path[lastIdx-1], end: train.path[lastIdx], index: train.path.length-2 } };
+    }
+
+    function isBlockOccupied(block) {
+        return trains.some(t => {
+            if (t.status === 'Terminated' || t.progress < 0) return false;
+            const pos = getTrainPosition(t);
+            if (!pos) return false;
+            // occupied if train's nose OR tail is inside this block
+            const segIdx = pos.segment.index;
+            if (segIdx === block.index) return true;
+            // also keep occupied until tail clears
+            if (segIdx === block.index + 1 && pos.distIntoSegment < TRAIN_LENGTH) return true;
+            return false;
+        });
+    }
+
+    function blockIndexProtectedBySignal(signalId) {
+        for (let i = 0; i < blocks.length; i++) {
+            if (blocks[i].from === signalId) return i;
+        }
+        for (let i = 0; i < blocks.length; i++) {
+            if (blocks[i].to === signalId) return i;
+        }
+        return -1;
+    }
+
+    function updateSignalStates() {
+        Object.keys(signalStates).forEach(sigId => {
+            const idx = blockIndexProtectedBySignal(sigId);
+            if (idx === -1 || idx >= blocks.length) {
+                signalStates[sigId] = 'red';
+                return;
+            }
+            const occ1 = isBlockOccupied(blocks[idx]);
+            const occ2 = (idx + 1 < blocks.length) ? isBlockOccupied(blocks[idx+1]) : true;
+            if (occ1) signalStates[sigId] = 'red';
+            else if (occ2) signalStates[sigId] = 'yellow';
+            else signalStates[sigId] = 'green';
+        });
+
+        Object.keys(signalStates).forEach(sigId => {
+            const el = document.getElementById(`signal-${sigId}`);
+            if (el) el.setAttribute('fill', signalColors[signalStates[sigId]]);
+        });
+    }
+
+    function canTrainEnterBlock(train, targetBlockIndex) {
+        if (targetBlockIndex < 0 || targetBlockIndex >= blocks.length) return true;
+        return !isBlockOccupied(blocks[targetBlockIndex]);
+    }
+
+    function updateTrainAndSignalLogic() {
+        updateSignalStates();
+        trains.forEach(train => {
+            if (train.status === 'Terminated') return;
+            if (train.progress < 0) {
+                if (!isBlockOccupied(blocks[0])) {
+                    train.progress += 1;
+                }
+                train.canProceed = false;
+                return;
+            }
+
+            const pos = getTrainPosition(train);
+            if (!pos) { train.canProceed = false; return; }
+            const nextNodeId = pos.segment.end;
+            const signalState = (networkData.nodes[nextNodeId] && networkData.nodes[nextNodeId].type === 'SIGNAL') ? signalStates[nextNodeId] : 'green';
+            const distToSignal = Math.hypot(networkData.nodes[nextNodeId].x - pos.x, networkData.nodes[nextNodeId].y - pos.y);
+            const STOP_DIST = 12;
+            const nextBlockIdx = pos.segment.index + 1;
+
+            if (signalState === 'red') {
+                train.approachSlow = false;
+                train.canProceed = distToSignal > STOP_DIST;
+            }
+            else if (signalState === 'yellow') {
+                train.approachSlow = true;
+                if (!canTrainEnterBlock(train, nextBlockIdx) && distToSignal <= STOP_DIST) {
+                    train.canProceed = false;
+                } else train.canProceed = true;
+            }
+            else {
+                train.approachSlow = false;
+                train.canProceed = canTrainEnterBlock(train, nextBlockIdx);
+            }
+        });
+    }
+
+    function gameLoop(timestamp) {
+        if (!isRunning) return;
+        const deltaTime = (timestamp - (lastTimestamp || timestamp)) / 1000;
+        lastTimestamp = timestamp;
+
+        updateTrainAndSignalLogic();
+
+        trains.forEach(train => {
+            if (train.status === 'Terminated') return;
+            if (train.progress < 0) {
+                if (!isBlockOccupied(blocks[0])) train.progress += train.speed * deltaTime;
+                return;
+            }
+            if (train.canProceed) {
+                const effectiveSpeed = train.approachSlow ? train.speed * 0.4 : train.speed;
+                train.progress += effectiveSpeed * deltaTime;
+            }
+            const totalPathLength = getTotalPathLength(train.path);
+            if (train.progress >= totalPathLength) {
+                train.status = "Terminated";
+                train.progress = totalPathLength;
+            }
+        });
+
+        drawSimulation();
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    jsonFileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                networkData = JSON.parse(e.target.result);
+                startStopBtn.disabled = false; resetBtn.disabled = false;
+                initializeSimulation();
+            } catch (error) { alert('Error parsing JSON file: ' + error.message); }
+        };
+        reader.readAsText(file);
+    });
+
+    startStopBtn.addEventListener('click', () => {
+        isRunning = !isRunning;
+        if (isRunning) {
+            startStopText.textContent = 'Stop'; startStopBtn.innerHTML = stopIcon + startStopText.outerHTML;
+            startStopBtn.classList.replace('bg-blue-600', 'bg-red-600'); startStopBtn.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
+            simStatusText.textContent = 'Simulation Running'; lastTimestamp = performance.now();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        } else {
+            startStopText.textContent = 'Start'; startStopBtn.innerHTML = startIcon + startStopText.outerHTML;
+            startStopBtn.classList.replace('bg-red-600', 'bg-blue-600'); startStopBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+            simStatusText.textContent = 'Simulation Paused'; cancelAnimationFrame(animationFrameId);
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        isRunning = false; cancelAnimationFrame(animationFrameId);
+        startStopText.textContent = 'Start'; startStopBtn.innerHTML = startIcon + startStopText.outerHTML;
+        startStopBtn.classList.replace('bg-red-600', 'bg-blue-600'); startStopBtn.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
+        initializeSimulation();
+    });
+
+    function updateTrainPositions() {
+        if (!networkData) return;
+        trains.forEach(train => {
+            const trainElement = document.getElementById(`train-${train.id}`);
+            if (!trainElement) return;
+            if (train.progress < 0 || train.status === "Terminated") {
+                trainElement.style.display = 'none';
+                return;
+            }
+            trainElement.style.display = 'block';
+            const pos = getTrainPosition(train);
+            if (pos) trainElement.setAttribute('transform', `translate(${pos.x - 15}, ${pos.y - 9})`);
+        });
+    }
+});
+</script>
+
+
+</body>
+</html>
+
